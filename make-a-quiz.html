@@ -1,11 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Make a quiz</title>
+    <link rel="stylesheet" href="navbar.css" />
+    <link rel="stylesheet" href="general.css" />
+    <link rel="stylesheet" href="cards.css" />
+    <link rel="stylesheet" href="make-a-quiz.css" />
+  </head>
+  <body>
+    <ul class="topnav">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="add-question.html">Add questions</a></li>
+      <li><a class="active" href="make-a-quiz.html">Create a quiz</a></li>
+      <li><a href="take-a-quiz.html">Take a quiz</a></li>
+      <li class="right"><a href="#about">About</a></li>
+    </ul>
+    <div class="questions">
+      <h1>Questions Bank</h1>
+      <h2>Click on a question and add it to the quiz</h2>
+      <div id="list" class="cards"></div>
+    </div>
+
+    <div class="quiz">
+      <h1>The new quiz</h1>
+      <form action="">
+        <label for="quizTitle">Quiz title:</label>
+        <textarea
+          id="quizTitle"
+          name="description"
+          rows="1"
+          cols="15"
+          required
+        ></textarea>
+        <input type="button" value="Save your changes" onclick="add()" />
+        <input
+          type="button"
+          value="Save this quiz and start a new one"
+          onclick="addAndRefresh()"
+        />
+      </form>
+      <h3>
+        If you want to remvoe a question from the quiz, you can click on the
+        question here ant it will be removed from the quiz.
+      </h3>
+      <div id="selectedQuestions" class="cards"></div>
+    </div>
+  </body>
+
+  <script>
+    const host = "http://localhost:8080";
+    let questions = [];
   
-</body>
+
+    async function getAllQuestions() {
+      const response = await fetch(`${host}/questions`);
+      const result = await response.json();
+      return result;
+    }
+  
+
+    async function displayQuestions() {
+      questions = await getAllQuestions();
+  
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+      const selectedQuestionsList = document.getElementById("selectedQuestions");
+      const selectedQuestionIds = Array.from(selectedQuestionsList.children).map(
+        (child) => parseInt(child.querySelector("b").textContent)
+      );
+  
+      for (const question of questions) {
+        if (!selectedQuestionIds.includes(question.id)) {
+          const div = createQuestionCard(question);
+          list.appendChild(div);
+        }
+      }
+    }
+  
+   
+    function createQuestionCard(question) {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.setAttribute("onclick", `toggleQuestionOn(${question.id})`);
+  
+      const innerHtml = `
+        <img src="${host}/questions/${question.id}/image" alt="question" style="width:100%">
+        <div class="container">
+          <h4><b>${question.id}</b></h4>
+          <p>${question.description}</p>
+          <form>
+            ${question.choices.map((choice, index) => `
+              <input type="radio" id="q${question.id}option${index}" name="q${question.id}Answer" value="${choice}">
+              <label for="q${question.id}option${index}">${choice}</label><br>`).join("")}
+          </form>
+        </div>`;
+      div.innerHTML = innerHtml;
+      return div;
+    }
+  
+   
+    async function toggleQuestionOn(questionId) {
+      questions = await getAllQuestions();
+      const question = questions.find((q) => q.id === questionId);
+  
+      const selectedQuestionsList = document.getElementById("selectedQuestions");
+      const div = createQuestionCard(question);
+      div.setAttribute("onclick", `toggleQuestionOff(${question.id})`);
+      selectedQuestionsList.appendChild(div);
+      displayQuestions();
+    }
+  
+  
+    async function toggleQuestionOff(questionId) {
+      const selectedQuestionsList = document.getElementById("selectedQuestions");
+      const questionToRemove = selectedQuestionsList.querySelector(`[onclick="toggleQuestionOff(${questionId})"]`);
+      selectedQuestionsList.removeChild(questionToRemove);
+      displayQuestions();
+    }
+  
+  
+    async function saveQuiz() {
+      const quizTitle = document.getElementById("quizTitle").value;
+      const selectedQuestionsList = document.getElementById("selectedQuestions");
+      const selectedQuestionIds = Array.from(selectedQuestionsList.children).map(
+        (child) => parseInt(child.querySelector("b").textContent)
+      );
+      const quiz = {
+        title: quizTitle,
+        questionIds: selectedQuestionIds,
+      };
+  
+      const response = await fetch(host + "/quizzes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(quiz),
+      });
+  
+      if (response.ok) {
+        
+        document.getElementById("quizTitle").value = "";
+        displayQuestions();
+      } else {
+        console.error("Failed to save quiz.");
+      }
+    }
+  
+   
+    async function saveAndRefresh() {
+      await saveQuiz();
+      location.reload();
+    }
+  
+   
+    displayQuestions();
+  </script>
 </html>
